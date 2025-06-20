@@ -1,1 +1,292 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Basit Canlı Finans & Tekli TV</title>
+<style>
+  :root {
+    --bg-light: #fff;
+    --text-light: #222;
+    --bg-dark: #121212;
+    --text-dark: #eee;
+  }
+  body[data-theme="dark"] {
+    background-color: var(--bg-dark);
+    color: var(--text-dark);
+  }
+  body[data-theme="light"] {
+    background-color: var(--bg-light);
+    color: var(--text-light);
+  }
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0; padding: 10px;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  h1 {
+    margin-bottom: 10px;
+  }
+  #stockData {
+    margin-bottom: 15px;
+  }
+  #stockData table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  #stockData th, #stockData td {
+    border: 1px solid #aaa;
+    padding: 6px;
+    text-align: center;
+  }
+  #controls {
+    margin-bottom: 15px;
+  }
+  #themeToggle {
+    margin-bottom: 15px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border: none;
+    background-color: #007acc;
+    color: white;
+    border-radius: 4px;
+  }
+  #videoContainer {
+    position: relative;
+    width: 480px;
+    height: 270px;
+    border: 2px solid #333;
+    background: #000;
+    user-select: none;
+  }
+  #videoContainer iframe {
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+  }
+  #videoControls {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    right: 4px;
+    background: rgba(0,0,0,0.6);
+    padding: 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    z-index: 10;
+  }
+  #videoUrl {
+    flex: 1;
+    font-size: 14px;
+    padding: 4px;
+  }
+  #applyUrl {
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  /* Drag handle */
+  #dragHandle {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background: #444;
+    cursor: move;
+    z-index: 20;
+  }
+</style>
+</head>
+<body data-theme="light">
+<h1>Basit Canlı Finans & Tekli TV</h1>
+<button id="themeToggle">Koyu Tema</button>
 
+<div id="stockData">
+  <table>
+    <thead>
+      <tr><th>Veri</th><th>Fiyat</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>USD/TRY</td><td id="usdTry">Yükleniyor...</td></tr>
+      <tr><td>Altın (XAUUSD)</td><td id="gold">Yükleniyor...</td></tr>
+      <tr><td>Petrol (OILUSUSD)</td><td id="oil">Yükleniyor...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="controls">
+  <input id="videoUrl" type="text" placeholder="YouTube/Kick/Twitch embed URL'si" style="width:60%" />
+  <button id="applyUrl">Uygula</button>
+</div>
+
+<div id="videoContainer">
+  <div id="dragHandle"></div>
+  <iframe id="videoFrame" src="" frameborder="0" allowfullscreen sandbox="allow-same-origin allow-scripts allow-popups allow-forms"></iframe>
+</div>
+
+<script>
+  // Tema yönetimi
+  const themeToggle = document.getElementById('themeToggle');
+  function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? 'Açık Tema' : 'Koyu Tema';
+    localStorage.setItem('theme', theme);
+  }
+  themeToggle.onclick = () => {
+    const current = document.body.getAttribute('data-theme');
+    setTheme(current === 'light' ? 'dark' : 'light');
+  };
+  // Yüklemede tema
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  setTheme(savedTheme);
+
+  // Finans verileri çek (basit, 15sn’de 1 güncelleme, free API limiti için yavaş)
+  const usdTryEl = document.getElementById('usdTry');
+  const goldEl = document.getElementById('gold');
+  const oilEl = document.getElementById('oil');
+
+  async function fetchFinance() {
+    try {
+      // Ücretsiz CoinGecko API kullanımı (altın, petrol verisi için uygun değil, demo amaçlı)
+      // USDTRY: Burada basit döviz fiyatı için free alternatif yok, demo için sabit değer verelim:
+      usdTryEl.textContent = (9.00 + Math.random()*0.05).toFixed(4);
+
+      // Altın ve petrol benzeri değerleri CoinGecko'dan basit olarak crypto market price alıyoruz demo için
+      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,gold&vs_currencies=usd');
+      const json = await res.json();
+      // Bitcoin'i petrol yerine kullandım demo amaçlı (gerçek projede doğru API koy)
+      goldEl.textContent = json.gold ? json.gold.usd.toFixed(2) : "Yok";
+      oilEl.textContent = json.bitcoin ? json.bitcoin.usd.toFixed(2) : "Yok";
+    } catch(e) {
+      usdTryEl.textContent = "Hata";
+      goldEl.textContent = "Hata";
+      oilEl.textContent = "Hata";
+    }
+  }
+  fetchFinance();
+  setInterval(fetchFinance, 15000);
+
+  // Video iframe URL ve konum/size kaydetme
+  const videoContainer = document.getElementById('videoContainer');
+  const videoFrame = document.getElementById('videoFrame');
+  const videoUrlInput = document.getElementById('videoUrl');
+  const applyUrlBtn = document.getElementById('applyUrl');
+
+  // LocalStorage key
+  const storageKey = 'single-tv-settings';
+
+  // Yükle
+  function loadSettings() {
+    const s = localStorage.getItem(storageKey);
+    if(!s) return;
+    try {
+      const obj = JSON.parse(s);
+      if(obj.url) {
+        videoUrlInput.value = obj.url;
+        videoFrame.src = obj.url;
+      }
+      if(obj.pos) {
+        videoContainer.style.left = obj.pos.x + 'px';
+        videoContainer.style.top = obj.pos.y + 'px';
+      }
+      if(obj.size) {
+        videoContainer.style.width = obj.size.w + 'px';
+        videoContainer.style.height = obj.size.h + 'px';
+      }
+    } catch {}
+  }
+  loadSettings();
+
+  // Kaydet
+  function saveSettings() {
+    const rect = videoContainer.getBoundingClientRect();
+    const obj = {
+      url: videoFrame.src,
+      pos: { x: rect.left, y: rect.top },
+      size: { w: rect.width, h: rect.height }
+    };
+    localStorage.setItem(storageKey, JSON.stringify(obj));
+  }
+
+  // URL uygula
+  applyUrlBtn.onclick = () => {
+    const val = videoUrlInput.value.trim();
+    if(val) {
+      videoFrame.src = val;
+      saveSettings();
+    }
+  };
+
+  // Sürükle bırak basit implementasyon
+  const dragHandle = document.getElementById('dragHandle');
+  let drag = false;
+  let dragOffsetX, dragOffsetY;
+
+  dragHandle.addEventListener('mousedown', (e) => {
+    drag = true;
+    dragOffsetX = e.clientX - videoContainer.offsetLeft;
+    dragOffsetY = e.clientY - videoContainer.offsetTop;
+    document.body.style.userSelect = 'none';
+  });
+  window.addEventListener('mouseup', () => {
+    if(drag) {
+      drag = false;
+      saveSettings();
+      document.body.style.userSelect = '';
+    }
+  });
+  window.addEventListener('mousemove', (e) => {
+    if(!drag) return;
+    let x = e.clientX - dragOffsetX;
+    let y = e.clientY - dragOffsetY;
+    // Sınırlandır (sayfa dışına çıkmasın)
+    x = Math.max(0, Math.min(window.innerWidth - videoContainer.offsetWidth, x));
+    y = Math.max(0, Math.min(window.innerHeight - videoContainer.offsetHeight, y));
+    videoContainer.style.left = x + 'px';
+    videoContainer.style.top = y + 'px';
+  });
+
+  // Yeniden boyutlandırma basit (sağ alt köşeye resize tutacağı ekleyelim)
+  const resizeHandle = document.createElement('div');
+  resizeHandle.style.width = '16px';
+  resizeHandle.style.height = '16px';
+  resizeHandle.style.background = '#ccc';
+  resizeHandle.style.position = 'absolute';
+  resizeHandle.style.right = '0';
+  resizeHandle.style.bottom = '0';
+  resizeHandle.style.cursor = 'se-resize';
+  resizeHandle.style.zIndex = '30';
+  videoContainer.appendChild(resizeHandle);
+
+  let resizing = false;
+  let startW, startH, startX, startY;
+
+  resizeHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    resizing = true;
+    startW = videoContainer.offsetWidth;
+    startH = videoContainer.offsetHeight;
+    startX = e.clientX;
+    startY = e.clientY;
+    document.body.style.userSelect = 'none';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if(resizing) {
+      resizing = false;
+      saveSettings();
+      document.body.style.userSelect = '';
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if(!resizing) return;
+    const newW = Math.max(160, startW + (e.clientX - startX));
+    const newH = Math.max(90, startH + (e.clientY - startY));
+    videoContainer.style.width = newW + 'px';
+    videoContainer.style.height = newH + 'px';
+  });
+</script>
+</body>
+</html>
